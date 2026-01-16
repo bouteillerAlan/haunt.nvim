@@ -1,0 +1,23 @@
+# Neovim swap files
+*.swp
+*.swo
+*~
+
+# Test artifacts
+test_results/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development
+.luarc.json
+.vim/
+
+# Editor directories
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp

@@ -1,0 +1,425 @@
+*haunt.txt*  A powerful bookmark management plugin for Neovim
+
+==============================================================================
+CONTENTS                                                      *haunt-contents*
+
+    1. Introduction ........................... |haunt-introduction|
+    2. Quick Start ............................ |haunt-quickstart|
+    3. Commands ............................... |haunt-commands|
+    4. Functions .............................. |haunt-functions|
+    5. Configuration .......................... |haunt-configuration|
+    6. Troubleshooting ........................ |haunt-troubleshooting|
+    7. License ................................ |haunt-license|
+
+==============================================================================
+1. INTRODUCTION                                           *haunt-introduction*
+
+haunt.nvim is a powerful and elegant bookmark management plugin for Neovim.
+It allows you to mark important lines in your code, navigate between them
+effortlessly, and add contextual annotations - all persisted per git branch.
+
+Features:
+  • Smart bookmarking with a single command
+  • Quick navigation between bookmarks
+  • Rich annotations displayed as virtual text
+  • Git-aware persistence (per repository and branch)
+  • Visual indicators (customizable signs and inline annotations)
+  • Automatic line tracking as you edit
+  • Zero configuration required
+
+==============================================================================
+2. QUICK START                                             *haunt-quickstart*
+
+After installation, haunt.nvim works out of the box with sensible defaults.
+
+Basic usage:
+>lua
+    -- Toggle a bookmark at the current line
+    require('haunt.api').toggle()
+
+    -- Navigate to the next bookmark
+    require('haunt.api').next()
+
+    -- Navigate to the previous bookmark
+    require('haunt.api').prev()
+
+    -- Add an annotation to a bookmark
+    require('haunt.api').annotate()
+
+    -- Clear all bookmarks in current file
+    require('haunt.api').clear()
+<
+
+Or use the provided commands:
+>vim
+    :HauntToggle
+    :HauntNext
+    :HauntPrev
+    :HauntAnnotate
+    :HauntList
+    :HauntClear
+    :HauntClearAll
+<
+
+==============================================================================
+3. COMMANDS                                                 *haunt-commands*
+
+                                                              *:HauntToggle*
+:HauntToggle            Toggle a bookmark at the current cursor line.
+                        If a bookmark exists, it will be removed.
+                        If no bookmark exists, one will be created.
+
+                                                              *:HauntNext*
+:HauntNext              Jump to the next bookmark in the current buffer.
+                        Wraps around to the first bookmark if at the end.
+
+                                                              *:HauntPrev*
+:HauntPrev              Jump to the previous bookmark in the current buffer.
+                        Wraps around to the last bookmark if at the beginning.
+
+                                                              *:HauntAnnotate*
+:HauntAnnotate          Add or edit an annotation for the bookmark at the
+                        current cursor position. If a bookmark exists, its
+                        current annotation will be pre-filled. If no bookmark
+                        exists, one will be created with the annotation.
+
+                                                              *:HauntList*
+:HauntList              Open an interactive picker to browse all bookmarks.
+                        Requires Snacks.nvim to be installed.
+                        Allows jumping to, deleting, or editing bookmarks.
+
+                                                              *:HauntClear*
+:HauntClear             Remove all bookmarks in the current file.
+
+                                                              *:HauntClearAll*
+:HauntClearAll          Remove all bookmarks in the entire project.
+                        Shows a confirmation prompt before clearing.
+
+==============================================================================
+4. FUNCTIONS                                               *haunt-functions*
+
+haunt.setup({opts})                                          *haunt.setup()*
+    Initialize haunt.nvim with optional configuration.
+
+    Parameters: ~
+        {opts}  (table|nil) Configuration table with the following keys:
+                • sign (string): Icon for bookmarks (default: '󰃀')
+                • sign_hl (string): Highlight group for sign (default: 'DiagnosticInfo')
+                • virt_text_hl (string): Highlight group for annotations (default: 'Comment')
+                • data_dir (string|nil): Custom data directory (default: vim.fn.stdpath("data") .. "/haunt/")
+
+    Example: ~
+>lua
+        require('haunt').setup({
+          sign = '🔖',
+          sign_hl = 'Statement',
+          virt_text_hl = 'Special',
+        })
+<
+
+------------------------------------------------------------------------------
+API FUNCTIONS                                           *haunt-api-functions*
+
+All API functions are available through `require('haunt.api')`.
+
+haunt.api.toggle()                                    *haunt.api.toggle()*
+    Toggle a bookmark at the current cursor position.
+
+    Returns: ~
+        (boolean) `true` if successful, `false` otherwise
+
+    Example: ~
+>lua
+        require('haunt.api').toggle()
+<
+
+haunt.api.next()                                        *haunt.api.next()*
+    Jump to the next bookmark in the current buffer.
+    Wraps around to the first bookmark if at the end.
+
+    Returns: ~
+        (boolean) `true` if jumped to a bookmark, `false` if no bookmarks exist
+
+    Example: ~
+>lua
+        require('haunt.api').next()
+<
+
+haunt.api.prev()                                        *haunt.api.prev()*
+    Jump to the previous bookmark in the current buffer.
+    Wraps around to the last bookmark if at the beginning.
+
+    Returns: ~
+        (boolean) `true` if jumped to a bookmark, `false` if no bookmarks exist
+
+    Example: ~
+>lua
+        require('haunt.api').prev()
+<
+
+haunt.api.annotate({text})                          *haunt.api.annotate()*
+    Add or edit an annotation for a bookmark at the current cursor position.
+
+    Parameters: ~
+        {text}  (string|nil) Optional annotation text. If provided, skips
+                the user input prompt and uses this text directly.
+
+    If a bookmark exists at the current line, its annotation will be updated.
+    If no bookmark exists, one will be created with the annotation.
+    If {text} is not provided, prompts the user for input.
+
+    Example: ~
+>lua
+        -- Prompt user for annotation
+        require('haunt.api').annotate()
+
+        -- Set annotation programmatically
+        require('haunt.api').annotate("TODO: Fix this bug")
+<
+
+haunt.api.clear()                                      *haunt.api.clear()*
+    Remove all bookmarks in the current file.
+
+    Returns: ~
+        (boolean) `true` if successful, `false` otherwise
+
+    Example: ~
+>lua
+        require('haunt.api').clear()
+<
+
+haunt.api.clear_all()                              *haunt.api.clear_all()*
+    Remove all bookmarks in the entire project.
+    Shows a confirmation prompt before clearing.
+
+    Returns: ~
+        (boolean) `true` if successful, `false` otherwise
+
+    Example: ~
+>lua
+        require('haunt.api').clear_all()
+<
+
+haunt.api.get_bookmarks()                      *haunt.api.get_bookmarks()*
+    Retrieve all bookmarks currently in memory.
+
+    Returns: ~
+        (table[]) Array of bookmark objects. Each bookmark has the following structure:
+            • file (string): Absolute file path
+            • line (number): 1-based line number
+            • note (string|nil): Optional annotation
+            • id (string): Unique identifier
+            • extmark_id (number|nil): Extmark ID for tracking
+
+    Example: ~
+>lua
+        local bookmarks = require('haunt.api').get_bookmarks()
+        for _, bookmark in ipairs(bookmarks) do
+          print(string.format("Line %d: %s", bookmark.line, bookmark.note or "No note"))
+        end
+<
+
+haunt.api.load()                                        *haunt.api.load()*
+    Load bookmarks from persistent storage.
+    This is automatically called during setup.
+
+    Returns: ~
+        (boolean) `true` if load succeeded, `false` otherwise
+
+    Example: ~
+>lua
+        require('haunt.api').load()
+<
+
+haunt.api.save()                                        *haunt.api.save()*
+    Save bookmarks to persistent storage.
+    Bookmarks are auto-saved on buffer hide and exit, but this can be
+    called manually to force a save.
+
+    Returns: ~
+        (boolean) `true` if save succeeded, `false` otherwise
+
+    Example: ~
+>lua
+        require('haunt.api').save()
+<
+
+------------------------------------------------------------------------------
+PICKER FUNCTIONS                                     *haunt-picker-functions*
+
+haunt.picker.show({opts})                          *haunt.picker.show()*
+    Open an interactive picker to browse and jump to bookmarks.
+    Requires Snacks.nvim (https://github.com/folke/snacks.nvim).
+
+    Parameters: ~
+        {opts}  (table|nil) Picker configuration options:
+                • title (string): Picker window title (default: "Haunt Bookmarks")
+                • layout (table): Window layout configuration
+                  • width (number): Window width (default: 0.8)
+                  • height (number): Window height (default: 0.6)
+
+    Picker actions: ~
+        • <CR>: Jump to bookmark
+        • delete: Delete selected bookmark
+        • edit_annotation: Edit bookmark annotation
+
+    Example: ~
+>lua
+        -- Show picker with default options
+        require('haunt.picker').show()
+
+        -- Show picker with custom title
+        require('haunt.picker').show({ title = "My Bookmarks" })
+<
+
+==============================================================================
+5. CONFIGURATION                                     *haunt-configuration*
+
+haunt.nvim works with zero configuration, but you can customize the
+appearance and behavior:
+
+Setup Options ~
+>lua
+    require('haunt').setup({
+      -- Sign icon in the sign column
+      sign = '󰃀',
+
+      -- Highlight group for the sign
+      sign_hl = 'DiagnosticInfo',
+
+      -- Highlight group for annotation virtual text
+      virt_text_hl = 'Comment',
+
+      -- Custom data directory for bookmark storage
+      -- Default: vim.fn.stdpath("data") .. "/haunt/"
+      data_dir = nil,
+    })
+<
+
+Recommended Keymaps ~
+>lua
+    -- Toggle bookmark
+    vim.keymap.set('n', 'mm', function() require('haunt.api').toggle() end,
+      { desc = "Toggle bookmark" })
+
+    -- Navigate bookmarks
+    vim.keymap.set('n', 'mn', function() require('haunt.api').next() end,
+      { desc = "Next bookmark" })
+    vim.keymap.set('n', 'mp', function() require('haunt.api').prev() end,
+      { desc = "Previous bookmark" })
+
+    -- Annotate bookmark
+    vim.keymap.set('n', 'ma', function() require('haunt.api').annotate() end,
+      { desc = "Annotate bookmark" })
+
+    -- Clear bookmarks
+    vim.keymap.set('n', 'mc', function() require('haunt.api').clear() end,
+      { desc = "Clear bookmarks in file" })
+    vim.keymap.set('n', 'mC', function() require('haunt.api').clear_all() end,
+      { desc = "Clear all bookmarks" })
+
+    -- List bookmarks
+    vim.keymap.set('n', 'ml', function() require('haunt.picker').show() end,
+      { desc = "List bookmarks" })
+<
+
+Custom Highlighting ~
+>lua
+    -- Define custom highlight groups
+    vim.cmd([[
+      highlight HauntBookmarkSign guifg=#FFD700 guibg=NONE
+      highlight HauntBookmarkNote guifg=#888888 guibg=NONE gui=italic
+    ]])
+
+    -- Use them in setup
+    require('haunt').setup({
+      sign_hl = 'HauntBookmarkSign',
+      virt_text_hl = 'HauntBookmarkNote',
+    })
+<
+
+Persistence ~
+
+Bookmarks are automatically saved and loaded:
+  • Location: `~/.local/share/nvim/haunt/` (or custom data_dir)
+  • Format: JSON files named by git repo + branch hash
+  • Auto-save: On buffer hide and Neovim exit
+  • Per-branch: Each git branch has its own bookmark set
+
+This means you can:
+  • Switch branches without losing bookmarks
+  • Have different bookmarks for different features
+  • Share bookmark files with your team (optional)
+
+==============================================================================
+6. TROUBLESHOOTING                                 *haunt-troubleshooting*
+
+Bookmarks not persisting ~
+
+Make sure you're in a git repository with an active branch:
+>bash
+    # Check if you're in a git repo
+    git status
+
+    # Check current branch
+    git branch --show-current
+<
+
+haunt.nvim requires a git repository to determine where to save bookmarks.
+
+Signs not showing ~
+
+1. Verify signs are enabled in your terminal/GUI
+2. Check if another plugin is using the sign column
+3. Ensure `setup()` was called:
+>lua
+    local display = require('haunt.display')
+    print(display.is_initialized())  -- Should return true
+<
+
+Bookmarks at wrong lines after editing ~
+
+This shouldn't happen as bookmarks use extmarks that track line changes.
+If it does occur:
+1. Save your bookmarks: `require('haunt.api').save()`
+2. Restart Neovim
+3. Report the issue with reproduction steps
+
+Picker not working ~
+
+The picker requires Snacks.nvim to be installed. Install it via your
+plugin manager:
+>lua
+    -- lazy.nvim
+    { "folke/snacks.nvim" }
+<
+
+Use `:HauntList` as a fallback for a simple list view.
+
+==============================================================================
+7. LICENSE                                                 *haunt-license*
+
+MIT License
+
+Copyright (c) 2026 haunt.nvim contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
