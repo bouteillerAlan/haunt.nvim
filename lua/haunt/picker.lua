@@ -140,35 +140,54 @@ function M.show()
 			local bookmarks = api.get_bookmarks()
 			local items = {}
 			for i, bookmark in ipairs(bookmarks) do
+				-- Create searchable text combining file, line, and note
+				local text = bookmark.file .. ":" .. bookmark.line
+				if bookmark.note and bookmark.note ~= "" then
+					text = text .. " " .. bookmark.note
+				end
+
 				table.insert(items, {
 					idx = i,
 					score = i,
 					file = bookmark.file,
 					pos = { bookmark.line, 0 }, -- Position in file (line, col)
+					text = text, -- Required for picker matcher searching
 					note = bookmark.note,
 					id = bookmark.id, -- Include bookmark ID for direct deletion
+					line = bookmark.line, -- Add line field for confirm action
 				})
 			end
 			return items
 		end,
-		-- Custom format that extends Snacks' file formatter with annotation
+		-- Custom format function for bookmark items
 		format = function(item, picker)
-			-- Use Snacks' file formatter as base
-			local ret = Snacks.picker.format.file(item, picker)
+			local ret = {}
 
-			-- Add annotation if present (no extra space)
+			-- Get relative file path
+			local file_path = vim.fn.fnamemodify(item.file, ":~:.")
+			local filename = vim.fn.fnamemodify(item.file, ":t")
+			local dir = vim.fn.fnamemodify(item.file, ":h")
+			if dir == "." then
+				dir = ""
+			else
+				dir = dir .. "/"
+			end
+
+			-- Format: filename (in directory) :line note
+			ret[#ret + 1] = { filename, "SnacksPickerFile" }
+			if dir ~= "" then
+				ret[#ret + 1] = { " " .. dir, "SnacksPickerDir" }
+			end
+			ret[#ret + 1] = { ":", "SnacksPickerIcon" }
+			ret[#ret + 1] = { tostring(item.pos[1]), "SnacksPickerMatch" }
+
+			-- Add annotation if present
 			if item.note and item.note ~= "" then
-				ret[#ret + 1] = { item.note, "SnacksPickerComment" }
+				ret[#ret + 1] = { " " .. item.note, "SnacksPickerComment" }
 			end
 
 			return ret
 		end,
-		formatters = {
-			file = {
-				filename_first = true, -- Display filename before the file path
-				truncate = 60, -- Truncate the file path to roughly this length
-			},
-		},
 		confirm = function(picker, item)
 			if not item then
 				return
