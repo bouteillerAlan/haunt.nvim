@@ -214,29 +214,20 @@ local function save_all_bookmarks()
 end
 
 -- Debounce timer for saving bookmarks after text changes
----@type uv_timer_t|nil
-local save_timer = nil
+---@type uv_timer_t
+local save_timer = vim.loop.new_timer()
 local SAVE_DEBOUNCE_DELAY = 500 -- milliseconds
 
 -- Debounced save function for text change events
 local function debounced_save()
-	-- Cancel existing timer
-	if save_timer then
-		save_timer:stop()
-		save_timer:close()
-		save_timer = nil
-	end
+	-- Stop the timer if it's running (safe to call even if not running)
+	save_timer:stop()
 
-	save_timer = vim.loop.new_timer()
+	-- Restart the timer
 	save_timer:start(
 		SAVE_DEBOUNCE_DELAY,
 		0,
 		vim.schedule_wrap(function()
-			if save_timer then
-				save_timer:close()
-				save_timer = nil
-			end
-
 			save_all_bookmarks()
 		end)
 	)
@@ -261,12 +252,8 @@ function M.setup_autocmds()
 		group = augroup,
 		pattern = "*",
 		callback = function()
-			-- Cancel and clean up any pending debounce timer
-			if save_timer then
-				save_timer:stop()
-				save_timer:close()
-				save_timer = nil
-			end
+			-- Stop any pending debounce timer
+			save_timer:stop()
 
 			save_all_bookmarks()
 		end,
