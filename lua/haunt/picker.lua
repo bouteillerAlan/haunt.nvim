@@ -1,35 +1,27 @@
---- Picker Integration for Haunt.nvim
+---@toc_entry Picker
+---@tag haunt-picker
+---@text
+--- # Picker ~
 ---
---- This module implements a picker source for Snacks.nvim that displays all
---- bookmarks across files in the current repository/branch.
+--- The picker provides an interactive interface to browse and manage bookmarks.
+--- Requires Snacks.nvim (https://github.com/folke/snacks.nvim).
 ---
---- Features:
---- - Lists all bookmarks with file paths, line numbers, and annotations
---- - Jump to bookmarks with <CR>
---- - Delete bookmarks with 'd' key (configurable via setup)
---- - Edit bookmark annotations with 'a' key (configurable via setup)
---- - Automatically refreshes picker after modifications
---- - Handles cases where Snacks.nvim is not installed
+--- Picker actions: ~
+---   - `<CR>`: Jump to the selected bookmark
+---   - `d` (normal mode): Delete the selected bookmark
+---   - `a` (normal mode): Edit the bookmark's annotation
 ---
---- Usage:
----   local picker = require('haunt.picker')
----   picker.show()  -- Opens the picker with all bookmarks
----
---- Integration with Snacks.nvim:
----   The picker uses Snacks.nvim's picker API to provide a consistent
----   user experience with other Snacks pickers. Items are formatted with
----   syntax highlighting and the picker supports custom actions.
----
----@class haunt.Picker
+--- The keybindings can be customized via |HauntConfig|.picker_keys.
+
+---@private
 local M = {}
 
--- Required modules (loaded lazily)
----@type haunt.Api?
+---@private
 local api = nil
----@type haunt.Module?
+---@private
 local haunt = nil
 
---- Lazy load required modules
+---@private
 local function ensure_modules()
 	if not api then
 		api = require("haunt.api")
@@ -39,6 +31,7 @@ local function ensure_modules()
 	end
 end
 
+---@private
 --- Execute a callback with buffer context temporarily switched
 --- Switches to the target buffer, sets cursor position, executes callback, then safely restores
 --- Uses pcall and validation to prevent errors when restoring picker buffer state
@@ -84,9 +77,96 @@ local function with_buffer_context(bufnr, line, callback)
 	return result
 end
 
---- Open the bookmark picker using Snacks.nvim
---- Displays all bookmarks with actions to open, delete, or edit annotations
+---@private
+--- Handle deleting a bookmark from the picker
+---@param picker table The Snacks picker instance
+---@param item table|nil The selected bookmark item
 ---@return nil
+local function handle_delete(picker, item)
+	ensure_modules()
+	---@cast api -nil
+
+	if not item then
+		return
+	end
+
+	-- Delete the bookmark by its ID (no need for buffer context)
+	local success = api.delete_by_id(item.id)
+
+	if not success then
+		vim.notify("haunt.nvim: Failed to delete bookmark", vim.log.levels.WARN)
+		return
+	end
+
+	-- Check if there are any bookmarks left
+	local remaining = api.get_bookmarks()
+	if #remaining == 0 then
+		picker:close()
+		vim.notify("haunt.nvim: No bookmarks remaining", vim.log.levels.INFO)
+		return
+	end
+
+	-- Refresh the picker to show updated list
+	picker:refresh()
+end
+
+---@private
+--- Handle editing a bookmark annotation from the picker
+---@param picker table The Snacks picker instance
+---@param item table|nil The selected bookmark item
+---@return nil
+local function handle_edit_annotation(picker, item)
+	ensure_modules()
+	---@cast api -nil
+
+	if not item then
+		return
+	end
+
+	-- Prompt for new annotation
+	local default_text = item.note or ""
+
+	-- Close picker temporarily to show input prompt clearly
+	picker:close()
+
+	local annotation = vim.fn.input({
+		prompt = "Annotation: ",
+		default = default_text,
+	})
+
+	-- If user cancelled (ESC), annotation will be empty string
+	-- Only proceed if something was entered or if clearing existing annotation
+	if annotation == "" and default_text == "" then
+		-- User cancelled with no existing annotation, reopen picker
+		M.show()
+		return
+	end
+
+	-- Open the file in a buffer if not already open
+	local bufnr = vim.fn.bufnr(item.file)
+	if bufnr == -1 then
+		bufnr = vim.fn.bufadd(item.file)
+		vim.fn.bufload(bufnr)
+	end
+
+	-- Use helper to execute annotate in the buffer context
+	with_buffer_context(bufnr, item.line, function()
+		api.annotate(annotation)
+	end)
+
+	-- Reopen the picker with updated data
+	M.show()
+end
+
+--- Open the bookmark picker.
+---
+--- Displays all bookmarks in an interactive picker powered by Snacks.nvim.
+--- Allows jumping to, deleting, or editing bookmark annotations.
+---
+---@usage >lua
+---   -- Show the picker
+---   require('haunt.picker').show()
+---<
 function M.show()
 	ensure_modules()
 	---@cast api -nil
@@ -106,13 +186,9 @@ function M.show()
 		return
 	end
 
-	-- Get keybinding configuration
-	local config = haunt.get_config()
-	local picker_keys = config.picker_keys
-		or {
-			delete = { key = "d", mode = { "n" } },
-			edit_annotation = { key = "a", mode = { "n" } },
-		}
+	-- Get keybinding configuration (config.get() always returns defaults if not set)
+	local cfg = haunt.get_config()
+	local picker_keys = cfg.picker_keys
 
 	-- Build keys table for Snacks picker in the correct format
 	-- Keys need to be in both input and list windows so they work regardless of focus
@@ -161,12 +237,12 @@ function M.show()
 		end,
 		-- Custom format function for bookmark items
 		format = function(item, picker)
-			local ret = {}
+			local result = {}
 
-			-- Get relative file path
-			local file_path = vim.fn.fnamemodify(item.file, ":~:.")
-			local filename = vim.fn.fnamemodify(item.file, ":t")
-			local dir = vim.fn.fnamemodify(item.file, ":h")
+			-- Get path relative to current working directory
+			local relpath = vim.fn.fnamemodify(item.file, ":.")
+			local filename = vim.fn.fnamemodify(relpath, ":t")
+			local dir = vim.fn.fnamemodify(relpath, ":h")
 			if dir == "." then
 				dir = ""
 			else
@@ -174,19 +250,19 @@ function M.show()
 			end
 
 			-- Format: filename (in directory) :line note
-			ret[#ret + 1] = { filename, "SnacksPickerFile" }
+			result[#result + 1] = { filename, "SnacksPickerFile" }
 			if dir ~= "" then
-				ret[#ret + 1] = { " " .. dir, "SnacksPickerDir" }
+				result[#result + 1] = { " " .. dir, "SnacksPickerDir" }
 			end
-			ret[#ret + 1] = { ":", "SnacksPickerIcon" }
-			ret[#ret + 1] = { tostring(item.pos[1]), "SnacksPickerMatch" }
+			result[#result + 1] = { ":", "SnacksPickerIcon" }
+			result[#result + 1] = { tostring(item.pos[1]), "SnacksPickerMatch" }
 
 			-- Add annotation if present
 			if item.note and item.note ~= "" then
-				ret[#ret + 1] = { " " .. item.note, "SnacksPickerComment" }
+				result[#result + 1] = { " " .. item.note, "SnacksPickerComment" }
 			end
 
-			return ret
+			return result
 		end,
 		confirm = function(picker, item)
 			if not item then
@@ -194,7 +270,7 @@ function M.show()
 			end
 			picker:close()
 
-			-- Open the file
+			-- Open file
 			local bufnr = vim.fn.bufnr(item.file)
 			if bufnr == -1 then
 				-- File not loaded, open it
@@ -204,79 +280,13 @@ function M.show()
 				vim.cmd("buffer " .. bufnr)
 			end
 
-			-- Jump to the line
+			-- go to line
 			vim.api.nvim_win_set_cursor(0, { item.line, 0 })
-
-			-- Center the cursor
 			vim.cmd("normal! zz")
 		end,
 		actions = {
-			-- Delete bookmark action
-			delete = function(picker, item)
-				if not item then
-					return
-				end
-
-				-- Delete the bookmark by its ID (no need for buffer context)
-				local success = api.delete_by_id(item.id)
-
-				if not success then
-					vim.notify("haunt.nvim: Failed to delete bookmark", vim.log.levels.WARN)
-					return
-				end
-
-				-- Check if there are any bookmarks left
-				local remaining = api.get_bookmarks()
-				if #remaining == 0 then
-					picker:close()
-					vim.notify("haunt.nvim: No bookmarks remaining", vim.log.levels.INFO)
-					return
-				end
-
-				-- Refresh the picker to show updated list
-				picker:refresh()
-			end,
-
-			-- Edit annotation action
-			edit_annotation = function(picker, item)
-				if not item then
-					return
-				end
-
-				-- Prompt for new annotation
-				local default_text = item.note or ""
-
-				-- Close picker temporarily to show input prompt clearly
-				picker:close()
-
-				local annotation = vim.fn.input({
-					prompt = "Annotation: ",
-					default = default_text,
-				})
-
-				-- If user cancelled (ESC), annotation will be empty string
-				-- Only proceed if something was entered or if clearing existing annotation
-				if annotation == "" and default_text == "" then
-					-- User cancelled with no existing annotation, reopen picker
-					M.show()
-					return
-				end
-
-				-- Open the file in a buffer if not already open
-				local bufnr = vim.fn.bufnr(item.file)
-				if bufnr == -1 then
-					bufnr = vim.fn.bufadd(item.file)
-					vim.fn.bufload(bufnr)
-				end
-
-				-- Use helper to execute annotate in the buffer context
-				with_buffer_context(bufnr, item.line, function()
-					api.annotate(annotation)
-				end)
-
-				-- Reopen the picker with updated data
-				M.show()
-			end,
+			delete = handle_delete,
+			edit_annotation = handle_edit_annotation,
 		},
 		win = {
 			input = {
