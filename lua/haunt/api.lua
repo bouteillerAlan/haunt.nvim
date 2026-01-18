@@ -8,24 +8,48 @@
 --- These functions provide the core functionality for managing bookmarks:
 --- creating, navigating, annotating, and deleting bookmarks.
 
----@private
+---@class ApiModule
+---@field toggle fun(): boolean
+---@field toggle_all_lines fun(): boolean
+---@field are_annotations_visible fun(): boolean
+---@field delete fun(): boolean
+---@field get_bookmarks fun(): Bookmark[]
+---@field load fun(): boolean
+---@field restore_buffer_bookmarks fun(bufnr: number): boolean
+---@field save fun(): boolean
+---@field annotate fun(text?: string): boolean
+---@field clear fun(): boolean
+---@field clear_all fun(): boolean
+---@field next fun(): boolean
+---@field prev fun(): boolean
+---@field delete_by_id fun(bookmark_id: string): boolean
+---@field _reset_for_testing fun()
+
+---@type ApiModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 ---@private
+---@type Bookmark[]
 local bookmarks = {}
 
 ---@private
+---@type boolean
 local _loaded = false
 
 ---@private
+---@type boolean
 local _autosave_setup = false
 
 ---@private
+---@type boolean
 local _annotations_visible = true
 
 ---@private
+---@type PersistenceModule|nil
 local persistence = nil
 ---@private
+---@type DisplayModule|nil
 local display = nil
 
 ---@private

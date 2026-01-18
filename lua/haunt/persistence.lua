@@ -18,18 +18,34 @@
 ---@field extmark_id number|nil Extmark ID for line tracking (internal)
 ---@field annotation_extmark_id number|nil Extmark ID for annotation display (internal)
 
----@private
+---@class PersistenceModule
+---@field set_data_dir fun(dir: string)
+---@field ensure_data_dir fun(): string|nil, string|nil
+---@field get_git_info fun(): {root: string|nil, branch: string|nil}
+---@field get_storage_path fun(): string|nil, string|nil
+---@field save_bookmarks fun(bookmarks: Bookmark[], filepath?: string): boolean
+---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
+---@field create_bookmark fun(file: string, line: number, note?: string): Bookmark|nil, string|nil
+---@field is_valid_bookmark fun(bookmark: table): boolean
+
+---@type PersistenceModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 ---@private
+---@type string|nil
 local custom_data_dir = nil
 
 -- Git info cache with TTL
+---@type {root: string|nil, branch: string|nil}|nil
 local _git_info_cache = nil
+---@type number
 local _cache_time = 0
+---@type number
 local CACHE_TTL = 5000 -- 5 seconds in milliseconds
 
 -- Track if we've already warned about git not being available
+---@type boolean
 local _git_warning_shown = false
 
 --- Gets the git root directory for the current working directory

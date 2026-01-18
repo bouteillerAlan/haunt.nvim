@@ -17,8 +17,10 @@
 local M = {}
 
 ---@private
+---@type ApiModule|nil
 local api = nil
 ---@private
+---@type HauntModule|nil
 local haunt = nil
 
 ---@private

@@ -132,12 +132,23 @@
 --- The picker requires Snacks.nvim (https://github.com/folke/snacks.nvim).
 --- Install it via your plugin manager.
 
----@private
+---@class HauntModule
+---@field _has_potential_bookmarks fun(): boolean
+---@field _ensure_initialized fun()
+---@field _setup_restoration_autocmd fun()
+---@field setup_autocmds fun()
+---@field setup fun(opts?: HauntConfig)
+---@field get_config fun(): HauntConfig
+---@field is_setup fun(): boolean
+
+---@type HauntModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 local config = require("haunt.config")
 
 -- Track initialization state
+---@type boolean
 local _initialized = false
 
 ---@private
@@ -208,6 +219,7 @@ local function save_all_bookmarks()
 end
 
 -- Debounce timer for saving bookmarks after text changes
+---@type uv_timer_t|nil
 local save_timer = nil
 local SAVE_DEBOUNCE_DELAY = 500 -- milliseconds
 

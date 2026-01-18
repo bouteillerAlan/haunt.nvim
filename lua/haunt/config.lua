@@ -18,14 +18,6 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 --- All fields are optional. Default values are shown below.
 ---
 ---@class HauntConfig
----@field sign? string Icon displayed in the sign column for bookmarks. Default: '󱙝'
----@field sign_hl? string Highlight group for the sign. Default: 'DiagnosticInfo'
----@field virt_text_hl? string Highlight group for annotation virtual text. Default: 'HauntAnnotation'
----@field annotation_prefix? string Text displayed before the annotation. Default: ' 󰆉 '
----@field line_hl? string|nil Highlight group for the entire bookmarked line. Default: nil
----@field virt_text_pos? string Position of virtual text. One of: "eol", "eol_right_align", "overlay", "right_align", "inline". Default: "eol"
----@field data_dir? string|nil Custom data directory path for bookmark storage. Default: vim.fn.stdpath("data") .. "/haunt/"
----@field picker_keys? table Keybindings for picker actions. See below for structure.
 ---
 ---@text
 --- Default configuration: ~
@@ -41,7 +33,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field picker_keys? table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
 --minidoc_replace_start M.DEFAULT = {
 M.DEFAULT = {
---minidoc_replace_end
+	--minidoc_replace_end
 	sign = "󱙝",
 	sign_hl = "DiagnosticInfo",
 	virt_text_hl = "HauntAnnotation",
@@ -57,6 +49,7 @@ M.DEFAULT = {
 --minidoc_afterlines_end
 
 -- User configuration (merged with defaults after setup)
+---@type HauntConfig|nil
 local user_config = nil
 
 ---@private

@@ -1,10 +1,27 @@
----@private
+---@class DisplayModule
+---@field get_namespace fun(): number
+---@field setup_signs fun(opts: table)
+---@field get_config fun(): table
+---@field is_initialized fun(): boolean
+---@field show_annotation fun(bufnr: number, line: number, note: string): number|nil
+---@field hide_annotation fun(bufnr: number, extmark_id: number)
+---@field set_bookmark_mark fun(bufnr: number, bookmark: Bookmark): number|nil
+---@field get_extmark_line fun(bufnr: number, extmark_id: number): number|nil
+---@field delete_bookmark_mark fun(bufnr: number, extmark_id: number)
+---@field clear_buffer_marks fun(bufnr: number)
+---@field place_sign fun(bufnr: number, line: number, sign_id: number)
+---@field unplace_sign fun(bufnr: number, sign_id: number)
+
+---@type DisplayModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 -- Lazy namespace creation (create on first use, not at module load)
+---@type number|nil
 local _namespace = nil
 
 -- Track if highlight groups have been defined
+---@type boolean
 local _highlights_defined = false
 
 --- Check if a buffer number is valid
@@ -44,6 +61,7 @@ end
 local config = require("haunt.config")
 
 -- Track if signs have been defined
+---@type boolean
 local _signs_defined = false
 
 --- Ensure signs are defined (lazy definition)
@@ -92,7 +110,7 @@ end
 --- @param bufnr number Buffer number
 --- @param line number 1-based line number
 --- @param note string The annotation text to display
---- @return number extmark_id The ID of the created extmark
+--- @return number|nil extmark_id The ID of the created extmark, or nil if validation fails
 function M.show_annotation(bufnr, line, note)
 	ensure_highlights_defined()
 
