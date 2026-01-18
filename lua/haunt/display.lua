@@ -1,58 +1,91 @@
----@class haunt.Display
+---@private
 local M = {}
 
--- Create namespace for haunt extmarks
-M.namespace = vim.api.nvim_create_namespace("haunt")
+-- Lazy namespace creation (create on first use, not at module load)
+local _namespace = nil
 
---- Display configuration stored at module level
----@type table|nil
-local display_config = nil
+-- Track if highlight groups have been defined
+local _highlights_defined = false
 
---- Default display configuration
----@class DisplayConfig
----@field sign string The icon to display for bookmarks (default: '󰃀')
----@field sign_hl string The highlight group for the sign text (default: 'DiagnosticInfo')
----@field virt_text_hl string The highlight group for virtual text annotations (default: 'Comment')
----@field line_hl string|nil The highlight group for the entire line (default: nil)
-local DEFAULT_CONFIG = {
-	sign = "󰃀",
-	sign_hl = "DiagnosticInfo",
-	virt_text_hl = "Comment",
-	line_hl = nil,
-}
+--- Check if a buffer number is valid
+---@param bufnr any The value to check
+---@return boolean is_valid True if bufnr is a valid buffer number
+local function is_valid_buffer(bufnr)
+	return type(bufnr) == "number" and vim.api.nvim_buf_is_valid(bufnr)
+end
 
---- Setup bookmark signs with vim.fn.sign_define()
---- Creates a "HauntBookmark" sign that can be reused for all bookmarks
----@param config? DisplayConfig Optional configuration table
----@return nil
-function M.setup_signs(config)
-	-- Merge user config with defaults
-	config = config or {}
-	display_config = vim.tbl_deep_extend("force", DEFAULT_CONFIG, config)
+--- Define custom highlight groups for haunt
+--- Creates HauntAnnotation highlight group with sensible defaults
+--- Users can override this by defining the highlight group themselves
+local function ensure_highlights_defined()
+	if _highlights_defined then
+		return
+	end
+	_highlights_defined = true
 
-	-- Define the HauntBookmark sign
-	-- This sign will be reused for all bookmarks in the plugin
+	-- Only set if not already defined by user
+	-- Link to DiagnosticVirtualTextHint which typically has a subtle background
+	-- and is semantically appropriate for hint/annotation text
+	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
+	if vim.tbl_isempty(existing) then
+		vim.api.nvim_set_hl(0, "HauntAnnotation", { link = "DiagnosticVirtualTextHint" })
+	end
+end
+
+--- Get or create the namespace for haunt extmarks
+---@return number namespace The namespace ID
+function M.get_namespace()
+	if not _namespace then
+		_namespace = vim.api.nvim_create_namespace("haunt")
+	end
+	return _namespace
+end
+
+local config = require("haunt.config")
+
+-- Track if signs have been defined
+local _signs_defined = false
+
+--- Ensure signs are defined (lazy definition)
+--- Only defines signs once when first needed
+local function ensure_signs_defined()
+	if _signs_defined then
+		return
+	end
+	_signs_defined = true
+
+	local cfg = config.get()
 	vim.fn.sign_define("HauntBookmark", {
-		text = display_config.sign,
-		texthl = display_config.sign_hl,
-		linehl = display_config.line_hl or "",
+		text = cfg.sign,
+		texthl = cfg.sign_hl,
+		linehl = cfg.line_hl or "",
 	})
 end
 
---- Get the current display configuration
----@return table config The current display configuration
-function M.get_config()
-	if not display_config then
-		-- If setup_signs hasn't been called, return default config
-		return vim.deepcopy(DEFAULT_CONFIG)
+--- Setup bookmark signs with vim.fn.sign_define()
+--- Creates a "HauntBookmark" sign that can be reused for all bookmarks
+--- Lightweight - stores config via config module, doesn't define signs yet
+---@param opts? HauntConfig Optional configuration table
+---@return nil
+function M.setup_signs(opts)
+	-- Config is already set up by init.lua, this is just for compatibility
+	-- The config module handles merging with defaults
+	if opts and not config.is_setup() then
+		config.setup(opts)
 	end
-	return vim.deepcopy(display_config)
+	-- Don't call sign_define here - it will be called lazily when first needed
 end
 
---- Check if signs have been initialized
----@return boolean initialized True if setup_signs has been called
+--- Get the current display configuration
+---@return HauntConfig config The current display configuration
+function M.get_config()
+	return config.get()
+end
+
+--- Check if config has been initialized
+---@return boolean initialized True if setup has been called
 function M.is_initialized()
-	return display_config ~= nil
+	return config.is_setup()
 end
 
 --- Show annotation as virtual text at the end of a line
@@ -61,14 +94,18 @@ end
 --- @param note string The annotation text to display
 --- @return number extmark_id The ID of the created extmark
 function M.show_annotation(bufnr, line, note)
-	-- Get the configured highlight or use default
-	local config = M.get_config()
-	local hl_group = config.virt_text_hl or "Comment"
+	ensure_highlights_defined()
+
+	local cfg = config.get()
+	-- some guards
+	local hl_group = cfg.virt_text_hl or "HauntAnnotation"
+	local prefix = cfg.annotation_prefix or "  "
+	local virt_text_pos = cfg.virt_text_pos or "eol"
 
 	-- nvim_buf_set_extmark uses 0-based line numbers
-	local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, M.namespace, line - 1, 0, {
-		virt_text = { { " " .. note, hl_group } },
-		virt_text_pos = "eol",
+	local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, M.get_namespace(), line - 1, 0, {
+		virt_text = { { prefix .. note, hl_group } },
+		virt_text_pos = virt_text_pos,
 	})
 
 	return extmark_id
@@ -79,13 +116,12 @@ end
 --- @param extmark_id number The extmark ID to remove
 ---@return boolean success True if hiding was successful, false otherwise
 function M.hide_annotation(bufnr, extmark_id)
-	-- Validate buffer
-	if not vim.api.nvim_buf_is_valid(bufnr) then
+	if not is_valid_buffer(bufnr) then
 		return false
 	end
 
 	-- Try to delete extmark (may fail if extmark doesn't exist, which is OK)
-	local ok = pcall(vim.api.nvim_buf_del_extmark, bufnr, M.namespace, extmark_id)
+	local ok = pcall(vim.api.nvim_buf_del_extmark, bufnr, M.get_namespace(), extmark_id)
 	return ok
 end
 
@@ -97,7 +133,7 @@ end
 ---@return number|nil extmark_id The created extmark ID, or nil if creation failed
 function M.set_bookmark_mark(bufnr, bookmark)
 	-- Validate inputs
-	if type(bufnr) ~= "number" or not vim.api.nvim_buf_is_valid(bufnr) then
+	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: set_bookmark_mark: invalid buffer number", vim.log.levels.ERROR)
 		return nil
 	end
@@ -126,7 +162,7 @@ function M.set_bookmark_mark(bufnr, bookmark)
 
 	-- Create extmark with right_gravity=false so it stays at the beginning of the line
 	-- even when text is inserted at the start of the line
-	local ok, extmark_id = pcall(vim.api.nvim_buf_set_extmark, bufnr, M.namespace, line, 0, {
+	local ok, extmark_id = pcall(vim.api.nvim_buf_set_extmark, bufnr, M.get_namespace(), line, 0, {
 		-- Track line movements automatically
 		right_gravity = false,
 		-- This extmark is invisible - it's only for tracking the line position
@@ -151,7 +187,7 @@ end
 ---@return number|nil line The current 1-based line number, or nil if extmark not found
 function M.get_extmark_line(bufnr, extmark_id)
 	-- Validate inputs
-	if type(bufnr) ~= "number" or not vim.api.nvim_buf_is_valid(bufnr) then
+	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: get_extmark_line: invalid buffer number", vim.log.levels.ERROR)
 		return nil
 	end
@@ -162,7 +198,7 @@ function M.get_extmark_line(bufnr, extmark_id)
 	end
 
 	-- Query extmark position
-	local ok, pos = pcall(vim.api.nvim_buf_get_extmark_by_id, bufnr, M.namespace, extmark_id, {})
+	local ok, pos = pcall(vim.api.nvim_buf_get_extmark_by_id, bufnr, M.get_namespace(), extmark_id, {})
 
 	if not ok then
 		-- Extmark not found or other error
@@ -185,7 +221,7 @@ end
 ---@return boolean success True if deletion was successful, false otherwise
 function M.delete_bookmark_mark(bufnr, extmark_id)
 	-- Validate inputs
-	if type(bufnr) ~= "number" or not vim.api.nvim_buf_is_valid(bufnr) then
+	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: delete_bookmark_mark: invalid buffer number", vim.log.levels.ERROR)
 		return false
 	end
@@ -196,7 +232,7 @@ function M.delete_bookmark_mark(bufnr, extmark_id)
 	end
 
 	-- Delete the extmark
-	local ok = pcall(vim.api.nvim_buf_del_extmark, bufnr, M.namespace, extmark_id)
+	local ok = pcall(vim.api.nvim_buf_del_extmark, bufnr, M.get_namespace(), extmark_id)
 
 	if not ok then
 		vim.notify(
@@ -215,13 +251,13 @@ end
 ---@return boolean success True if clearing was successful, false otherwise
 function M.clear_buffer_marks(bufnr)
 	-- Validate input
-	if type(bufnr) ~= "number" or not vim.api.nvim_buf_is_valid(bufnr) then
+	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: clear_buffer_marks: invalid buffer number", vim.log.levels.ERROR)
 		return false
 	end
 
 	-- Clear all extmarks in the namespace for this buffer
-	local ok = pcall(vim.api.nvim_buf_clear_namespace, bufnr, M.namespace, 0, -1)
+	local ok = pcall(vim.api.nvim_buf_clear_namespace, bufnr, M.get_namespace(), 0, -1)
 
 	if not ok then
 		vim.notify("haunt.nvim: clear_buffer_marks: failed to clear extmarks", vim.log.levels.ERROR)
@@ -234,17 +270,12 @@ end
 -- Sign group name for organizing haunt signs
 local SIGN_GROUP = "haunt_signs"
 
--- Debounce timers per buffer
-local debounce_timers = {}
-
--- Debounce delay in milliseconds
-local DEBOUNCE_DELAY = 100
-
 --- Place a sign at a specific line in a buffer
 ---@param bufnr number Buffer number
 ---@param line number 1-based line number
 ---@param sign_id number Unique sign ID
 function M.place_sign(bufnr, line, sign_id)
+	ensure_signs_defined()
 	vim.fn.sign_place(sign_id, SIGN_GROUP, "HauntBookmark", bufnr, { lnum = line, priority = 10 })
 end
 
@@ -255,130 +286,6 @@ function M.unplace_sign(bufnr, sign_id)
 	vim.fn.sign_unplace(SIGN_GROUP, {
 		buffer = bufnr,
 		id = sign_id,
-	})
-end
-
---- Update bookmark signs based on current extmark positions
---- This is now a simple wrapper that delegates to the API layer
---- The API layer owns the synchronization logic to avoid circular dependencies
----@param bufnr number Buffer number
-function M.update_bookmark_signs(bufnr)
-	if not vim.api.nvim_buf_is_valid(bufnr) then
-		return
-	end
-
-	-- Delegate to API layer for synchronization
-	local api = require("haunt.api")
-	api.sync_extmark_positions(bufnr)
-end
-
---- Get bookmarks for a specific buffer
---- Retrieves all bookmarks and filters them by buffer filepath
----@param bufnr number Buffer number
----@return table bookmarks Array of bookmarks for the buffer
-local function get_buffer_bookmarks(bufnr)
-	-- Validate buffer
-	if type(bufnr) ~= "number" or not vim.api.nvim_buf_is_valid(bufnr) then
-		return {}
-	end
-
-	-- Get buffer filepath (normalized to absolute)
-	local filepath = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":p")
-	if filepath == "" then
-		return {}
-	end
-
-	-- Get all bookmarks from API
-	local api = require("haunt.api")
-	local all_bookmarks = api.get_bookmarks()
-
-	-- Filter bookmarks for this buffer
-	local buffer_bookmarks = {}
-	for _, bookmark in ipairs(all_bookmarks) do
-		if bookmark.file == filepath then
-			table.insert(buffer_bookmarks, bookmark)
-		end
-	end
-
-	return buffer_bookmarks
-end
-
---- Debounced update function
---- Cancels previous timer and schedules a new update
----@param bufnr number Buffer number
-local function debounced_update(bufnr)
-	-- Cancel existing timer for this buffer
-	if debounce_timers[bufnr] then
-		debounce_timers[bufnr]:stop()
-		debounce_timers[bufnr]:close()
-		debounce_timers[bufnr] = nil
-	end
-
-	-- Create new timer
-	debounce_timers[bufnr] = vim.loop.new_timer()
-
-	debounce_timers[bufnr]:start(
-		DEBOUNCE_DELAY,
-		0,
-		vim.schedule_wrap(function()
-			-- Check if buffer is still valid
-			if not vim.api.nvim_buf_is_valid(bufnr) then
-				-- Clean up timer
-				if debounce_timers[bufnr] then
-					debounce_timers[bufnr]:close()
-					debounce_timers[bufnr] = nil
-				end
-				return
-			end
-
-			-- Clean up timer
-			if debounce_timers[bufnr] then
-				debounce_timers[bufnr]:close()
-				debounce_timers[bufnr] = nil
-			end
-
-			-- Update signs
-			M.update_bookmark_signs(bufnr)
-		end)
-	)
-end
-
---- Setup autocmds for sign updates on text changes
-function M.setup_autocmds()
-	local augroup = vim.api.nvim_create_augroup("haunt_sign_updates", { clear = true })
-
-	-- Update signs on text changes (normal mode)
-	vim.api.nvim_create_autocmd("TextChanged", {
-		group = augroup,
-		pattern = "*",
-		callback = function(args)
-			debounced_update(args.buf)
-		end,
-		desc = "Update haunt bookmark signs on text changes",
-	})
-
-	-- Update signs on text changes (insert mode)
-	vim.api.nvim_create_autocmd("TextChangedI", {
-		group = augroup,
-		pattern = "*",
-		callback = function(args)
-			debounced_update(args.buf)
-		end,
-		desc = "Update haunt bookmark signs on text changes in insert mode",
-	})
-
-	-- Clean up timers when buffer is deleted
-	vim.api.nvim_create_autocmd("BufDelete", {
-		group = augroup,
-		pattern = "*",
-		callback = function(args)
-			if debounce_timers[args.buf] then
-				debounce_timers[args.buf]:stop()
-				debounce_timers[args.buf]:close()
-				debounce_timers[args.buf] = nil
-			end
-		end,
-		desc = "Clean up haunt debounce timers on buffer delete",
 	})
 end
 
