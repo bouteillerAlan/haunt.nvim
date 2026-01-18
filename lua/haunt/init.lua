@@ -197,14 +197,9 @@ end
 -- Check if any bookmarks exist
 -- This prevents unnecessary writes when there are no bookmarks
 local function has_bookmarks()
-	-- Check if API module is loaded and has bookmarks
-	local api = package.loaded["haunt.api"]
-	if not api then
-		return false
-	end
-
-	local bookmarks = api.get_bookmarks and api.get_bookmarks() or {}
-	return #bookmarks > 0
+	-- Use the API's has_bookmarks function which handles loading state properly
+	local api = require("haunt.api")
+	return api.has_bookmarks()
 end
 
 local function save_all_bookmarks()
