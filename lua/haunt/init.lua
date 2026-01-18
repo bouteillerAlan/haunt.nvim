@@ -184,6 +184,15 @@ function M._setup_restoration_autocmd()
 		desc = "Restore bookmark visuals when buffers are opened",
 	})
 
+	-- Clean up restoration tracking when buffers are deleted
+	vim.api.nvim_create_autocmd("BufDelete", {
+		group = augroup,
+		callback = function(args)
+			require("haunt.api").cleanup_buffer_tracking(args.buf)
+		end,
+		desc = "Clean up bookmark restoration tracking",
+	})
+
 	-- Restore bookmarks for already-loaded buffers (they missed BufReadPost)
 	M._ensure_initialized()
 	local api = require("haunt.api")

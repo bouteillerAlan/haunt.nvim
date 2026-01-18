@@ -25,6 +25,7 @@
 ---@field next fun(): boolean
 ---@field prev fun(): boolean
 ---@field delete_by_id fun(bookmark_id: string): boolean
+---@field cleanup_buffer_tracking fun(bufnr: number)
 ---@field _reset_for_testing fun()
 
 ---@type ApiModule
@@ -38,6 +39,10 @@ local bookmarks = {}
 ---@private
 ---@type table<string, Bookmark[]>
 local bookmarks_by_file = {}
+
+---@private
+---@type table<number, boolean>
+local restored_buffers = {}
 
 ---@private
 ---@type boolean
@@ -679,7 +684,15 @@ function M.restore_buffer_bookmarks(bufnr)
 		return true
 	end
 
-	-- check if bookmarks have already been restored for this buffer
+	-- Guard against race condition: check if buffer already restored
+	if restored_buffers[bufnr] then
+		return true
+	end
+
+	-- Mark buffer as restored before doing work to prevent concurrent restoration
+	restored_buffers[bufnr] = true
+
+	-- Additional safety check: verify no extmarks exist (shouldn't happen with guard above)
 	local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { limit = 1 })
 
 	-- already restored
@@ -1081,6 +1094,13 @@ function M.delete_by_id(bookmark_id)
 	return true
 end
 
+--- Clean up restoration tracking for a deleted buffer
+--- This prevents memory leaks in the restored_buffers table
+---@param bufnr number Buffer number that was deleted
+function M.cleanup_buffer_tracking(bufnr)
+	restored_buffers[bufnr] = nil
+end
+
 --- Reset internal state for testing purposes only
 --- WARNING: This will clear ALL bookmarks from memory without persisting
 --- Only use in test environments
@@ -1088,6 +1108,7 @@ end
 function M._reset_for_testing()
 	bookmarks = {}
 	bookmarks_by_file = {}
+	restored_buffers = {}
 	_loaded = true -- Prevent auto-loading from disk
 	_autosave_setup = false
 	_annotations_visible = true
