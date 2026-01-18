@@ -54,7 +54,7 @@ local function get_git_root()
 	local result = vim.fn.systemlist("git rev-parse --show-toplevel")
 	local exit_code = vim.v.shell_error
 
-	if exit_code == 0 then
+	if exit_code == 0 and result[1] then
 		return result[1]
 	end
 
@@ -85,8 +85,8 @@ local function get_git_branch()
 	end
 
 	local branch = result[1]
-	-- Return nil for empty string (detached HEAD or no commits)
-	if branch == "" then
+	-- Return nil for empty string (detached HEAD or no commits) or missing result
+	if not branch or branch == "" then
 		return nil
 	end
 	return branch
