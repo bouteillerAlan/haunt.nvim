@@ -9,3 +9,6 @@ require("lazy.minit").setup({
 		{ dir = vim.uv.cwd() },
 	},
 })
+
+-- Silence vim.notify during tests to the standard output
+vim.notify = function() end
