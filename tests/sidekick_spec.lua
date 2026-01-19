@@ -10,6 +10,10 @@ describe("haunt.sidekick", function()
 		-- Reset modules for clean state
 		package.loaded["haunt.sidekick"] = nil
 		package.loaded["haunt.api"] = nil
+		package.loaded["haunt.store"] = nil
+		package.loaded["haunt.utils"] = nil
+		package.loaded["haunt.navigation"] = nil
+		package.loaded["haunt.restoration"] = nil
 
 		sidekick = require("haunt.sidekick")
 		api = require("haunt.api")

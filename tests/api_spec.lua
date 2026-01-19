@@ -30,6 +30,10 @@ describe("haunt.api", function()
 		package.loaded["haunt.display"] = nil
 		package.loaded["haunt.persistence"] = nil
 		package.loaded["haunt.config"] = nil
+		package.loaded["haunt.store"] = nil
+		package.loaded["haunt.utils"] = nil
+		package.loaded["haunt.navigation"] = nil
+		package.loaded["haunt.restoration"] = nil
 		api = require("haunt.api")
 		display = require("haunt.display")
 		local config = require("haunt.config")
