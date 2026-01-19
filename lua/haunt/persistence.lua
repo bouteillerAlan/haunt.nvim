@@ -263,15 +263,6 @@ function M.load_bookmarks(filepath)
 	return data.bookmarks
 end
 
---- Bookmark structure
---- @class Bookmark
---- @field file string Absolute path to file
---- @field line number 1-based line number
---- @field note string|nil Optional annotation text
---- @field id string Unique bookmark identifier
---- @field extmark_id number|nil Extmark ID for line tracking
---- @field annotation_extmark_id number|nil Extmark ID for annotation virtual text
-
 --- Create a new bookmark
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
