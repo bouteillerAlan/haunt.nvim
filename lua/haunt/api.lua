@@ -334,7 +334,9 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 		-- Rollback
 		bookmark.note = old_note
 		bookmark.annotation_extmark_id = old_annotation_extmark_id
-		display.hide_annotation(bufnr, new_extmark_id)
+		if new_extmark_id then
+			display.hide_annotation(bufnr, new_extmark_id)
+		end
 
 		if old_annotation_extmark_id then
 			bookmark.annotation_extmark_id = display.show_annotation(bufnr, line, old_note or "")
