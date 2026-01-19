@@ -919,16 +919,16 @@ function M.clear_all()
 
 	-- Group bookmarks by file to find corresponding buffers
 	--- @type table<string, Bookmark[]>
-	local bookmarks_by_file = {}
+	local grouped_bookmarks = {}
 	for _, bookmark in ipairs(bookmarks) do
-		if not bookmarks_by_file[bookmark.file] then
-			bookmarks_by_file[bookmark.file] = {}
+		if not grouped_bookmarks[bookmark.file] then
+			grouped_bookmarks[bookmark.file] = {}
 		end
-		table.insert(bookmarks_by_file[bookmark.file], bookmark)
+		table.insert(grouped_bookmarks[bookmark.file], bookmark)
 	end
 
 	-- iterate over file -> bookmarks map
-	for file_path, file_bookmarks in pairs(bookmarks_by_file) do
+	for file_path, file_bookmarks in pairs(grouped_bookmarks) do
 		local bufnr = vim.fn.bufnr(file_path)
 		if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
 			goto continue
