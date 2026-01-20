@@ -24,6 +24,7 @@
 ---@field next fun(): boolean
 ---@field prev fun(): boolean
 ---@field delete_by_id fun(bookmark_id: string): boolean
+---@field to_quickfix fun(opts?: QuickfixOpts): boolean
 ---@field cleanup_buffer_tracking fun(bufnr: number)
 ---@field _reset_for_testing fun()
 
@@ -635,6 +636,30 @@ function M.delete_by_id(bookmark_id)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false
 	end
+
+	return true
+end
+
+--- Populate the quickfix list with haunt bookmarks.
+---
+---@param opts? QuickfixOpts Options for filtering and formatting
+---@return boolean success True if the quickfix list was updated
+function M.to_quickfix(opts)
+	ensure_modules()
+	---@cast store -nil
+
+	local items = store.get_quickfix_items(opts)
+	if #items == 0 then
+		vim.notify("haunt.nvim: No bookmarks to add to quickfix", vim.log.levels.INFO)
+		return false
+	end
+
+	local title = (opts and opts.current_buffer) and "Haunt (buffer)" or "Haunt"
+
+	vim.fn.setqflist({}, " ", {
+		title = title,
+		items = items,
+	})
 
 	return true
 end
