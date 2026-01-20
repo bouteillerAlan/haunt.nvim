@@ -19,6 +19,7 @@ Keep your mental overhead to a minimum and never repeatedly rummage through your
 - Jump around using your hauntings
 - Search through your bookmarks with `snacks.nvim` 
 - Use `sidekick.nvim` to send your annotations to your favorite cli tool. Have a robot purge you of your hauntings!
+- Populate the quickfix list with your bookmarks when you want a simple jump list
 - Though the examples don't show this, this plugin was deisgned to ease the navigation of massive codebases through semantic markings
 - Super fast, and does its best to have as little computations, and load time, as possible. I get around .6ms ;)
 
@@ -218,6 +219,16 @@ return {
 }
 ```
 
+### Quickfix list
+
+Populate Neovim's quickfix list with your bookmarks:
+
+```lua
+local haunt = require("haunt.api")
+haunt.to_quickfix() -- all bookmarks
+haunt.to_quickfix({ current_buffer = true }) -- current buffer only
+```
+
 ### Git
 Keep your annotations scoped to your branches.
 
@@ -259,6 +270,6 @@ I hope this helps others with the same issues.
 this can take in a boolean, or a logging level. then, in the program, we can use
 a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
 - [ ] Integration for Telescope and fzf-lua?
-- [ ] Quickfix list integration? I feel like picker is more than enough though. If you see this and want it, open a ticket.
+- [x] Quickfix list integration? I feel like picker is more than enough though. If you see this and want it, open a ticket.
 
 </details>
