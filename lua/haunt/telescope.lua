@@ -196,7 +196,6 @@ function M.show(opts)
 	local conf = require("telescope.config").values
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
-	local previewers = require("telescope.previewers")
 	local entry_display = require("telescope.pickers.entry_display")
 
 	-- Check if there are any bookmarks
@@ -269,7 +268,7 @@ function M.show(opts)
 			prompt_title = "Hauntings",
 			finder = finder,
 			sorter = conf.generic_sorter(opts),
-			previewer = previewers.vim_buffer_cat.new(opts),
+			previewer = conf.grep_previewer(opts),
 			attach_mappings = function(prompt_bufnr, map)
 				-- Default action: jump to bookmark
 				actions.select_default:replace(function()
