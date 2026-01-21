@@ -90,6 +90,16 @@ return {
     map("n", prefix .. "l", function()
       haunt_picker.show()
     end, { desc = "Show Picker" })
+
+    -- yank
+    map("n", prefix .. "y", function()
+      haunt.yank_locations({current_buffer = true})
+    end, { desc = "Show Picker" })
+
+    map("n", prefix .. "Y", function()
+      haunt.yank_locations()
+    end, { desc = "Show Picker" })
+
   end,
 }
 ```
