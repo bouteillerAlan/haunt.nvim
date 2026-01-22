@@ -19,7 +19,7 @@
 ---@field annotation_extmark_id number|nil Extmark ID for annotation display (internal)
 
 ---@class PersistenceModule
----@field set_data_dir fun(dir: string)
+---@field set_data_dir fun(dir: string|nil)
 ---@field ensure_data_dir fun(): string|nil, string|nil
 ---@field get_git_info fun(): {root: string|nil, branch: string|nil}
 ---@field get_storage_path fun(): string|nil, string|nil
