@@ -284,6 +284,7 @@ Fields ~
 {to_quickfix} `(fun(opts?: QuickfixOpts): boolean)`
 {yank_locations} `(fun(opts?: SidekickOpts): boolean)`
 {cleanup_buffer_tracking} `(fun(bufnr: number))`
+{change_data_dir} `(fun(new_dir: string|nil): boolean)`
 {_reset_for_testing} `(fun())`
 
 ------------------------------------------------------------------------------
@@ -584,6 +585,28 @@ This prevents memory leaks in the restored_buffers table
 Parameters ~
 {bufnr} `(number)` Buffer number that was deleted
 
+------------------------------------------------------------------------------
+                                                           *M.change_data_dir()*
+                         `M.change_data_dir`({new_dir})
+Change the data directory and reload all bookmarks.
+
+Saves current bookmarks to the old data_dir, clears all visual elements,
+then loads bookmarks from the new location and restores visuals.
+This is useful for autocommands that need to switch bookmark contexts.
+
+Parameters ~
+{new_dir} `(string|nil)` The new data directory path, or nil to reset to default
+Return ~
+`(boolean)` success True if the change was successful
+
+Usage ~
+>lua
+  -- Switch to a project-specific bookmark directory
+  require('haunt.api').change_data_dir('/path/to/project/.bookmarks/')
+
+  -- Reset to default data directory
+  require('haunt.api').change_data_dir(nil)
+<
 
 ==============================================================================
 ------------------------------------------------------------------------------
@@ -613,7 +636,7 @@ Fields ~
 Class ~
 {PersistenceModule}
 Fields ~
-{set_data_dir} `(fun(dir: string))`
+{set_data_dir} `(fun(dir: string|nil))`
 {ensure_data_dir} `(fun(): string|nil,)` string|nil
 {get_git_info} `(fun(): {root: string|nil, branch: string|nil})`
 {get_storage_path} `(fun(): string|nil,)` string|nil
@@ -664,8 +687,9 @@ Return ~
                                                               *M.set_data_dir()*
                             `M.set_data_dir`({dir})
 Set custom data directory
+Expands ~ to home directory and ensures trailing slash
 Parameters ~
-{dir} `(string|nil)` Custom data directory path
+{dir} `(string|nil)` Custom data directory path, or nil to reset to default
 
 ------------------------------------------------------------------------------
                                                            *M.ensure_data_dir()*
@@ -834,6 +858,7 @@ haunt.nvim provides the following user commands:
 `:HauntList` - Open interactive picker to browse all bookmarks
 `:HauntClear` - Clear all bookmarks in current buffer
 `:HauntClearAll` - Clear all bookmarks across all files
+`:HauntChangeDataDir [path]` - Change bookmark data directory (for project-specific bookmarks)
 
 ------------------------------------------------------------------------------
 Class ~

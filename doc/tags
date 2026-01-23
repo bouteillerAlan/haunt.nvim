@@ -3,6 +3,7 @@ CACHE_TTL	haunt.txt	/*CACHE_TTL*
 HauntConfig	haunt.txt	/*HauntConfig*
 M.annotate()	haunt.txt	/*M.annotate()*
 M.are_annotations_visible()	haunt.txt	/*M.are_annotations_visible()*
+M.change_data_dir()	haunt.txt	/*M.change_data_dir()*
 M.cleanup_buffer_tracking()	haunt.txt	/*M.cleanup_buffer_tracking()*
 M.clear()	haunt.txt	/*M.clear()*
 M.clear_all()	haunt.txt	/*M.clear_all()*
