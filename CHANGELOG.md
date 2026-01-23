@@ -35,7 +35,7 @@
 
 ### Bug Fixes
 
-* toggle quickfix when sent to quickfix ([209eef0](https://github.com/TheNoeTrevino/haunt.nvim/commit/209eef0a3c91f9391a91a7af26fde87d673fadd4))
+* [toggle](2026-01-23_toggle.md) quickfix when sent to quickfix ([209eef0](https://github.com/TheNoeTrevino/haunt.nvim/commit/209eef0a3c91f9391a91a7af26fde87d673fadd4))
 
 ## [0.2.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.1.0...v0.2.0) (2026-01-21)
 
