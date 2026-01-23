@@ -4,9 +4,10 @@
 --- # Picker ~
 ---
 --- The picker provides an interactive interface to browse and manage bookmarks.
---- Requires Snacks.nvim (https://github.com/folke/snacks.nvim).
+--- Uses Snacks.nvim (https://github.com/folke/snacks.nvim) if available,
+--- otherwise falls back to vim.ui.select for basic functionality.
 ---
---- Picker actions: ~
+--- Picker actions (Snacks.nvim only): ~
 ---   - `<CR>`: Jump to the selected bookmark
 ---   - `d` (normal mode): Delete the selected bookmark
 ---   - `a` (normal mode): Edit the bookmark's annotation
@@ -160,10 +161,70 @@ local function handle_edit_annotation(picker, item)
 	M.show()
 end
 
+---@private
+--- Build picker items from bookmarks
+---@param bookmarks Bookmark[]
+---@return table[]
+local function build_picker_items(bookmarks)
+	local items = {}
+	for i, bm in ipairs(bookmarks) do
+		local text = vim.fn.fnamemodify(bm.file, ":.") .. ":" .. bm.line
+		if bm.note and bm.note ~= "" then
+			text = text .. " " .. bm.note
+		end
+		table.insert(items, {
+			idx = i,
+			score = i,
+			file = bm.file,
+			pos = { bm.line, 0 },
+			text = text,
+			note = bm.note,
+			id = bm.id,
+			line = bm.line,
+		})
+	end
+	return items
+end
+
+---@private
+--- Fallback picker using vim.ui.select when Snacks.nvim is not available
+local function show_fallback_picker()
+	ensure_modules()
+	---@cast api -nil
+
+	local bookmarks = api.get_bookmarks()
+	if #bookmarks == 0 then
+		vim.notify("haunt.nvim: No bookmarks found", vim.log.levels.INFO)
+		return
+	end
+
+	vim.ui.select(build_picker_items(bookmarks), {
+		prompt = "Hauntings",
+		format_item = function(item)
+			return item.text
+		end,
+	}, function(choice)
+		if not choice then
+			return
+		end
+
+		local bufnr = vim.fn.bufnr(choice.file)
+		if bufnr == -1 then
+			vim.cmd("edit " .. vim.fn.fnameescape(choice.file))
+		else
+			vim.cmd("buffer " .. bufnr)
+		end
+
+		vim.api.nvim_win_set_cursor(0, { choice.line, 0 })
+		vim.cmd("normal! zz")
+	end)
+end
+
 --- Open the bookmark picker.
 ---
 --- Displays all bookmarks in an interactive picker powered by Snacks.nvim.
---- Allows jumping to, deleting, or editing bookmark annotations.
+--- Allows jumping to, deleting, or editing bookmark annotations (Snacks.nvim only).
+--- Falls back to vim.ui.select if Snacks.nvim is not available.
 ---
 ---@usage >lua
 ---   -- Show the picker
@@ -175,10 +236,9 @@ function M.show(opts)
 	---@cast api -nil
 	---@cast haunt -nil
 
-	-- Check if Snacks is available
 	local ok, Snacks = pcall(require, "snacks")
 	if not ok then
-		vim.notify("haunt.nvim: Snacks.nvim is not installed", vim.log.levels.ERROR)
+		show_fallback_picker()
 		return
 	end
 
@@ -217,27 +277,7 @@ function M.show(opts)
 		title = "Hauntings",
 		-- Use a finder function so picker:refresh() works correctly
 		finder = function()
-			local bookmarks = api.get_bookmarks()
-			local items = {}
-			for i, bookmark in ipairs(bookmarks) do
-				-- Create searchable text combining file, line, and note
-				local text = bookmark.file .. ":" .. bookmark.line
-				if bookmark.note and bookmark.note ~= "" then
-					text = text .. " " .. bookmark.note
-				end
-
-				table.insert(items, {
-					idx = i,
-					score = i,
-					file = bookmark.file,
-					pos = { bookmark.line, 0 }, -- Position in file (line, col)
-					text = text, -- Required for picker matcher searching
-					note = bookmark.note,
-					id = bookmark.id, -- Include bookmark ID for direct deletion
-					line = bookmark.line, -- Add line field for confirm action
-				})
-			end
-			return items
+			return build_picker_items(api.get_bookmarks())
 		end,
 		-- Custom format function for bookmark items
 		format = function(item, picker)
