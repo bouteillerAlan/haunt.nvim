@@ -46,10 +46,27 @@ describe("haunt.picker.utils", function()
 			assert.is_not_nil(item.idx)
 			assert.is_not_nil(item.score)
 			assert.is_not_nil(item.file)
+			assert.is_not_nil(item.relpath)
+			assert.is_not_nil(item.filename)
 			assert.is_not_nil(item.pos)
 			assert.is_not_nil(item.text)
 			assert.is_not_nil(item.id)
 			assert.is_not_nil(item.line)
+		end)
+
+		it("caches relpath and filename", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			local bookmarks = api.get_bookmarks()
+			local items = utils.build_picker_items(bookmarks)
+
+			assert.are.equal(1, #items)
+			local item = items[1]
+			-- relpath should be the relative path
+			assert.are.equal(vim.fn.fnamemodify(item.file, ":."), item.relpath)
+			-- filename should be just the filename
+			assert.are.equal(vim.fn.fnamemodify(item.file, ":t"), item.filename)
 		end)
 
 		it("creates searchable text with file, line, and note", function()
@@ -204,6 +221,129 @@ describe("haunt.picker.utils", function()
 			local haunt_module = utils.get_haunt()
 			assert.is_not_nil(haunt_module)
 			assert.is_not_nil(haunt_module.get_config)
+		end)
+	end)
+
+	describe("handle_edit_annotation()", function()
+		local bufnr, test_file
+		local original_input
+		local close_called, reopen_called
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "Line 1", "Line 2", "Line 3" })
+			original_input = vim.fn.input
+			close_called = false
+			reopen_called = false
+		end)
+
+		after_each(function()
+			vim.fn.input = original_input
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("calls close_picker before prompting", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Original")
+
+			local bookmarks = api.get_bookmarks()
+			local items = utils.build_picker_items(bookmarks)
+
+			-- Mock input to return a new annotation
+			vim.fn.input = function()
+				-- At this point, close should have been called
+				assert.is_true(close_called)
+				return "New annotation"
+			end
+
+			utils.handle_edit_annotation({
+				item = items[1],
+				close_picker = function()
+					close_called = true
+				end,
+				reopen_picker = function()
+					reopen_called = true
+				end,
+			})
+
+			assert.is_true(close_called)
+			assert.is_true(reopen_called)
+		end)
+
+		it("updates the bookmark annotation", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Original")
+
+			local bookmarks = api.get_bookmarks()
+			local items = utils.build_picker_items(bookmarks)
+
+			-- Mock input to return a new annotation
+			vim.fn.input = function()
+				return "Updated annotation"
+			end
+
+			utils.handle_edit_annotation({
+				item = items[1],
+				close_picker = function()
+					close_called = true
+				end,
+				reopen_picker = function()
+					reopen_called = true
+				end,
+			})
+
+			-- Check that the annotation was updated
+			local updated_bookmarks = api.get_bookmarks()
+			assert.are.equal("Updated annotation", updated_bookmarks[1].note)
+		end)
+
+		it("reopens picker without saving when cancelled with no existing annotation", function()
+			-- Create a mock item with no annotation (simulating a bookmark without note)
+			local mock_item = {
+				idx = 1,
+				score = 1,
+				file = test_file,
+				relpath = vim.fn.fnamemodify(test_file, ":."),
+				filename = vim.fn.fnamemodify(test_file, ":t"),
+				pos = { 1, 0 },
+				text = test_file .. ":1",
+				note = nil, -- No existing annotation
+				id = "mock-id",
+				line = 1,
+			}
+
+			-- Mock input to return empty (simulating cancel)
+			vim.fn.input = function()
+				return ""
+			end
+
+			utils.handle_edit_annotation({
+				item = mock_item,
+				close_picker = function()
+					close_called = true
+				end,
+				reopen_picker = function()
+					reopen_called = true
+				end,
+			})
+
+			assert.is_true(close_called)
+			assert.is_true(reopen_called)
+		end)
+
+		it("handles nil item gracefully", function()
+			utils.handle_edit_annotation({
+				item = nil,
+				close_picker = function()
+					close_called = true
+				end,
+				reopen_picker = function()
+					reopen_called = true
+				end,
+			})
+
+			-- Should not call close or reopen
+			assert.is_false(close_called)
+			assert.is_false(reopen_called)
 		end)
 	end)
 end)
